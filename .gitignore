@@ -21,3 +21,4 @@ MYMETA.json
 t/LWPCache/
 .build
 {{ ($x=$name) =~ s/::/-/g }}
+MooseX-Params-Validate-Sugar-*

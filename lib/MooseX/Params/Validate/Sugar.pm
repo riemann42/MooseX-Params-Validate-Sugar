@@ -72,14 +72,12 @@ sub with_pos_params (@) {
     }
     return sub {
         my ( $name, $args_in ) = @_;
-        my @args =
-            ( @{$args_in} > @names )
-            ? @{$args_in}[ 0 .. $#names ]
-            : @{$args_in};
-        @{$args_in} =
-            ( @{$args_in} > @names )
-            ? @{$args_in}[ $#names + 1 .. scalar @{$args_in} - 1 ]
-            : ();
+        my @args = ();
+        for (@names) {
+            if (@{$args_in}) {
+                push @args, shift @{$args_in};
+            }
+        }
         my @ret =
             MooseX::Params::Validate::pos_validated_list( \@args,
             ( @values, MX_PARAMS_VALIDATE_CACHE_KEY => $name ) );
@@ -149,8 +147,8 @@ sub _is_tc {
             && $maybe_tc->isa('Moose::Meta::TypeConstraint');
 }
 
-sub with_slurpy_params ($) {
-    my $spec = shift;
+sub with_slurpy_params ($$) {
+    my ($attr, $spec) = @_;
     if ( ! ref $spec ) { $spec = { isa => $spec } }
     my $pv_spec = _convert_to_param_validate_spec($spec);
     return sub {
@@ -158,20 +156,14 @@ sub with_slurpy_params ($) {
        if ( !@{$args_in} && ! $pv_spec->{optional}) {
             confess "$name called with empty list.";
        }
-       my @out = ();
-       for (@{$args_in}) {
-            if ($pv_spec->{constraint}) {
-                if ($pv_spec->{coerce}) {
-                    $_ = $pv_spec->{constraint}->coerce($_);
-                }
-                if (! $pv_spec->{constraint}->check($_)) {
-                    confess "Value $_ passed to $name does not pass type constraint";
-                }
-            }
-            push @out, $_;
+       if ($pv_spec->{constraint}) {
+           if ($pv_spec->{coerce}) {
+               $_ = $pv_spec->{constraint}->coerce($_);
+           }
+           $pv_spec->{constraint}->assert_valid($args_in); 
        }
-       @{$args_in} = ();
-       return ( LIST => \@out )
+       my @out = @{$args_in};
+       return ( $attr => \@out )
     }
 }
 
@@ -276,8 +268,8 @@ __END__
 
 =head1 DESCRIPTION
 
-This adds some pretty sugar to L<MooseX::Params::Validate>.  
+This adds some pretty sugar to L<MooseX::Params::Validate>.  It allows you to do a few things with MX:P:V
+that are normally a little cumbersome (such as mixing positional and named paramaters). 
 
-=cut
 
 

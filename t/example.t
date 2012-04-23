@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 10000;    # last test to print
+use Test::More tests => 10;    # last test to print
 use Try::Tiny;
 
 {
@@ -32,8 +32,8 @@ use Try::Tiny;
     method 'simple' => sub { my ($self, $ret) = @_; return $ret };
 
     method 'sum' =>
-        with_slurpy_params ('Int'),
-        via { return reduce { $a + $b } @{$_{LIST}} };
+        with_slurpy_params ( list => 'ArrayRef[Int]'),
+        via { return reduce { $a + $b } @{$_{list}} };
 
     method 'lsum' =>
         with_trailing_list,
@@ -57,13 +57,11 @@ sub do_tests {
     eval { $app->multiply() };
     ok ($@ =~ /Mandatory parameter 'first' missing in call/, 'test of missing params');
     eval { $app->sum('1', 'apples', 'oranges') };
-    ok ($@ =~ /does not pass type constraint/, 'test of bad value');
+    ok ($@ =~ /Validation failed/, 'test of bad value');
     is( $app->lsum(5.5,6.5,7.5,5.5,6.5,7.5,2.2,.8), 42, 'test of with_trailing_list');
     $app = undef;
 }
 
-for ( 1..1000) {
-    do_tests();
-}
+do_tests();
 
 

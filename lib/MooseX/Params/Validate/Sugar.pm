@@ -4,11 +4,12 @@ use warnings;
 package MooseX::Params::Validate::Sugar;
 
 #ABSTRACT: Sugar for MooseX::Params::Validate
+use MooseX::Params::Validate::Sugar::TieHash;
 use MooseX::Params::Validate ();
 use Moose::Exporter;
 use Moose ();
 use Moose::Util::TypeConstraints;
-use Scalar::Readonly qw(readonly_on);
+#use Scalar::Readonly qw(readonly_on);
 use List::MoreUtils qw(natatime pairwise part);
 use Carp qw(confess);
 use Scalar::Util qw(blessed);
@@ -16,7 +17,6 @@ use Scalar::Util qw(blessed);
 Moose::Exporter->setup_import_methods(
     with_meta => [ 'method' ],
     as_is     => [ 'with_params', 'with_hash_params', 'with_pos_params', 'via', 'with_slurpy_params', 'with_trailing_list' ],
-    also      => [ 'Moose' ],
 );
 
 =func with_params (%params)
@@ -202,7 +202,9 @@ You can also access these via the global variable %_.  $_{self} is the instance.
     #Perform division
     return $params{numerator} / $params{denominator};
 
-Please note that %_ values are marked readonly, so copy them if you want to modify.
+Please note that %_ is a tied hash.  Trying to change it or access
+non-existant keys will generate an error.  Because
+of this, it is recommened to generally use this method, rather than the params method.
 
 Via is imported from Moose::Util::TypeConstraints to avoid a conflict.
 
@@ -215,12 +217,13 @@ sub method {
     if (@params) {
         $meta->add_method(
             $name => sub {
-                local %_ = ( self => shift );
+                my %p = ( self => shift );
                 my $count = 0;
                 for (@params) {
-                    %_ = ( %_, &{$_}( $full_name . '::test' . $count++, \@_ ) );
+                    %p = ( %p, &{$_}( $full_name . '::test' . $count++, \@_ ) );
                 }
-                readonly_on($_) for values %_;
+                local %_;
+                tie %_, 'MooseX::Params::Validate::Sugar::TieHash', %p;
                 $_{self}->$sub(%_);
             }
         );
@@ -228,8 +231,9 @@ sub method {
     else {
         $meta->add_method(
             $name => sub {
-                local %_ = ( self => shift );
-                readonly_on($_) for values %_;
+                my %p = ( self => shift );
+                local %_;
+                tie %_, 'MooseX::Params::Validate::Sugar::TieHash', %p;
                 $_{self}->$sub(@_);
             }
         );

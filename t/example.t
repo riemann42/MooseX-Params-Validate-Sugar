@@ -1,16 +1,22 @@
 use strict;
 use warnings;
 
-use Test::More tests => 10;    # last test to print
+use Test::More tests => 11;    # last test to print
 use Try::Tiny;
 
 {
 
     package MyApp;
+    use Moose;
     use MooseX::Params::Validate::Sugar;
     use List::Util qw(reduce);
     use Moose::Util::TypeConstraints;
 
+    method 'evil' => 
+         with_params ( first  => 'Int', second => { isa => 'Int', default => 7 }),
+         via {
+            return $_{evilfirst} * $_{evilsecond};
+         };
 
     method 'multiply' => 
          with_params ( first  => 'Int', second => { isa => 'Int', default => 7 }),
@@ -39,6 +45,8 @@ use Try::Tiny;
         with_trailing_list,
         via { return reduce { $a + $b } @{$_{LIST}} };
 
+
+
     1;
 }
 
@@ -58,6 +66,9 @@ sub do_tests {
     ok ($@ =~ /Mandatory parameter 'first' missing in call/, 'test of missing params');
     eval { $app->sum('1', 'apples', 'oranges') };
     ok ($@ =~ /Validation failed/, 'test of bad value');
+    eval { $app->evil(first => 6) };
+    warn $@;
+    ok ($@ =~ /modify param/, 'test of evil method');
     is( $app->lsum(5.5,6.5,7.5,5.5,6.5,7.5,2.2,.8), 42, 'test of with_trailing_list');
     $app = undef;
 }
